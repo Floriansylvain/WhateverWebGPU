@@ -1,6 +1,8 @@
 @group(0) @binding(0) var<uniform> grid: vec2f;
 @group(0) @binding(1) var<uniform> time: f32;
 
+const TAU: f32 = 6.28318530718;
+
 struct VertexInput {
     @location(0) pos: vec2f,
     @builtin(instance_index) instance: u32,
@@ -25,21 +27,14 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
 }
 
 fn hueToRGB(hue: f32) -> vec3f {
-    let r = 0.5 + 0.5 * sin(6.28318 * (hue + 0.0));
-    let g = 0.5 + 0.5 * sin(6.28318 * (hue + 0.33));
-    let b = 0.5 + 0.5 * sin(6.28318 * (hue + 0.66));
-    return vec3f(r, g, b);
+    return 0.5 + 0.5 * sin(TAU * (vec3f(hue) + vec3f(0.0, 0.33, 0.66)));
 }
 
 @fragment
 fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
-    let center = grid * 0.5;
-    let delta = input.cell - center;
+    let delta = input.cell - grid * 0.5;
     let angle = atan2(delta.y, delta.x);
-    let normalizedAngle = (angle / (2.0 * 3.14159)) + 0.5;
-
-    let speed = 0.3;
-    let hue = fract(normalizedAngle + time * speed);
-    let color = hueToRGB(hue);
-    return vec4f(color, 1.0);
+    let normalizedAngle = (angle / TAU) + 0.5;
+    let hue = fract(normalizedAngle + time * 0.3);
+    return vec4f(hueToRGB(hue), 1.0);
 }
