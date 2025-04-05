@@ -7,9 +7,3 @@ body {
 	height: 100vh;
 	background-color: #222;
 }
-
-canvas {
-	width: 512px;
-	height: 512px;
-	display: block;
-}
