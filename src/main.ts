@@ -83,20 +83,52 @@ function createTimeBuffer(device: GPUDevice): GPUBuffer {
 	})
 }
 
-function createBindGroup(
+function createStateStorageBuffers(device: GPUDevice): GPUBuffer[] {
+	const cellStateArray = new Uint32Array(GRID_SIZE * GRID_SIZE)
+	const size = cellStateArray.byteLength
+	const usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+	const cellStateStorage = [
+		device.createBuffer({ label: "Cell State A", size, usage }),
+		device.createBuffer({ label: "Cell State B", size, usage }),
+	]
+	for (let i = 0; i < cellStateArray.length; i += 3) {
+		cellStateArray[i] = 1
+	}
+	device.queue.writeBuffer(cellStateStorage[0], 0, cellStateArray)
+	for (let i = 0; i < cellStateArray.length; i++) {
+		cellStateArray[i] = i % 2
+	}
+	device.queue.writeBuffer(cellStateStorage[1], 0, cellStateArray)
+	return cellStateStorage
+}
+
+function createBindGroups(
 	device: GPUDevice,
 	cellPipeline: GPURenderPipeline,
 	gridUniformBuffer: GPUBuffer,
 	timeBuffer: GPUBuffer,
-): GPUBindGroup {
-	return device.createBindGroup({
-		label: "Cell renderer bind group",
-		layout: cellPipeline.getBindGroupLayout(0),
-		entries: [
-			{ binding: 0, resource: { buffer: gridUniformBuffer } },
-			{ binding: 1, resource: { buffer: timeBuffer } },
-		],
-	})
+	cellStateStorage: GPUBuffer[],
+): GPUBindGroup[] {
+	return [
+		device.createBindGroup({
+			label: "Cell renderer bind group A",
+			layout: cellPipeline.getBindGroupLayout(0),
+			entries: [
+				{ binding: 0, resource: { buffer: gridUniformBuffer } },
+				{ binding: 1, resource: { buffer: timeBuffer } },
+				{ binding: 2, resource: { buffer: cellStateStorage[0] } },
+			],
+		}),
+		device.createBindGroup({
+			label: "Cell updater bind group B",
+			layout: cellPipeline.getBindGroupLayout(0),
+			entries: [
+				{ binding: 0, resource: { buffer: gridUniformBuffer } },
+				{ binding: 1, resource: { buffer: timeBuffer } },
+				{ binding: 2, resource: { buffer: cellStateStorage[1] } },
+			],
+		}),
+	]
 }
 
 function createVertexBuffer(device: GPUDevice): GPUBuffer {
@@ -113,18 +145,44 @@ function createVertexBuffer(device: GPUDevice): GPUBuffer {
 }
 
 class Renderer {
+	private lastFrameTime: number = 0
+	private frameCount: number = 0
+	private fps: number = 0
+	private bindGroupIndex: number = 0
+	private lastBindGroupSwitchTime: number = 0
+
 	constructor(
 		private device: GPUDevice,
 		private context: GPUCanvasContext,
 		private cellPipeline: GPURenderPipeline,
 		private vertexBuffer: GPUBuffer,
-		private bindGroup: GPUBindGroup,
+		private bindGroups: GPUBindGroup[],
 		private timeBuffer: GPUBuffer,
 		private vertices: Float32Array,
 	) {}
 
-	public render(timeMs: number): void {
+	private updateFpsCount(timeMs: number): void {
+		if (this.lastFrameTime === 0) this.lastFrameTime = timeMs
+		this.frameCount++
+		if (timeMs - this.lastFrameTime >= 1000) {
+			this.fps = this.frameCount
+			this.frameCount = 0
+			this.lastFrameTime = timeMs
+			document.querySelector("#fps")!.textContent = `FPS: ${this.fps}`
+		}
+	}
+
+	private updateBindGroupIndex(timeMs: number): void {
+		if (timeMs - this.lastBindGroupSwitchTime >= 500) {
+			this.bindGroupIndex = (this.bindGroupIndex + 1) % this.bindGroups.length
+			this.lastBindGroupSwitchTime = timeMs
+		}
+	}
+
+	public async render(timeMs: number): Promise<void> {
 		const time = timeMs / 1000
+		this.updateFpsCount(timeMs)
+		this.updateBindGroupIndex(timeMs)
 		this.device.queue.writeBuffer(this.timeBuffer, 0, new Float32Array([time]))
 
 		const encoder = this.device.createCommandEncoder()
@@ -141,7 +199,9 @@ class Renderer {
 
 		pass.setPipeline(this.cellPipeline)
 		pass.setVertexBuffer(0, this.vertexBuffer)
-		pass.setBindGroup(0, this.bindGroup)
+
+		pass.setBindGroup(0, this.bindGroups[this.bindGroupIndex])
+
 		pass.draw(this.vertices.length / 2, GRID_SIZE * GRID_SIZE)
 		pass.end()
 
@@ -158,11 +218,13 @@ async function init() {
 	const cellPipeline = await createCellPipeline(device, canvasFormat)
 	const gridUniformBuffer = createGridUniformBuffer(device)
 	const timeBuffer = createTimeBuffer(device)
-	const bindGroup = createBindGroup(
+	const cellStateStorage = createStateStorageBuffers(device)
+	const bindGroups = createBindGroups(
 		device,
 		cellPipeline,
 		gridUniformBuffer,
 		timeBuffer,
+		cellStateStorage,
 	)
 	const vertexBuffer = createVertexBuffer(device)
 	const vertices = new Float32Array([
@@ -174,7 +236,7 @@ async function init() {
 		context,
 		cellPipeline,
 		vertexBuffer,
-		bindGroup,
+		bindGroups,
 		timeBuffer,
 		vertices,
 	)
