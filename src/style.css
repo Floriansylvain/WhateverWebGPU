@@ -1,24 +1,90 @@
+:root {
+	--bg: #0e0e10;
+	--fg: #ffffffcc;
+	--panel-bg: #1e1e22;
+	--accent: #3a82f7;
+	--font: "Inter", sans-serif;
+}
+
 body {
 	margin: 0;
-	padding: 0;
-
+	background-color: var(--bg);
+	color: var(--fg);
+	font-family: var(--font);
 	display: flex;
 	justify-content: center;
 	align-items: center;
-	flex-direction: column;
-
 	height: 100vh;
+}
 
-	background-color: #222;
+#app {
+	display: flex;
+	flex-direction: row;
+	gap: 1rem;
+}
 
-	color: #fff;
-	font-family: "Courier New", Courier, monospace;
+#canvas-container {
+	position: relative;
 }
 
 canvas {
+	border-radius: 12px;
+	box-shadow: 0 0 20px #000a;
 	image-rendering: pixelated;
 }
 
-#compute-interval-slider {
+#overlay {
+	position: absolute;
+	top: 8px;
+	left: 12px;
+	background-color: #0008;
+	color: white;
+	font-size: 14px;
+	padding: 4px 8px;
+	border-radius: 8px;
+	pointer-events: none;
+	font-family: monospace;
+}
+
+#controls-panel {
+	background-color: var(--panel-bg);
+	padding: 1rem;
+	border-radius: 12px;
+	width: 200px;
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	box-shadow: 0 0 20px #0004;
+}
+
+#controls-panel h2 {
+	margin: 0;
+	font-size: 18px;
+	color: var(--accent);
+}
+
+label {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	font-size: 14px;
+}
+
+input[type="range"] {
 	width: 100%;
+}
+
+button {
+	background-color: var(--accent);
+	color: white;
+	border: none;
+	padding: 0.5rem;
+	border-radius: 8px;
+	cursor: pointer;
+	font-size: 14px;
+	transition: background 0.2s ease-in-out;
+}
+
+button:hover {
+	background-color: #2c6de5;
 }
