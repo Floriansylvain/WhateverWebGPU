@@ -9,6 +9,21 @@
 	<body>
 		<canvas id="canvas" width="1024" height="1024"></canvas>
 		<p id="fps">FPS:</p>
+		<div>
+			<label for="compute-interval-slider"
+				>Compute Interval (ms):
+				<span id="compute-interval-value">100</span></label
+			>
+			<div>
+				<input
+					id="compute-interval-slider"
+					type="range"
+					min="1"
+					max="200"
+					value="100"
+				/>
+			</div>
+		</div>
 		<script type="module" src="/src/main.ts"></script>
 	</body>
 </html>

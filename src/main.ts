@@ -1,7 +1,21 @@
 import "./style.css"
 
 const GRID_SIZE = 64
-const COMPUTE_MS_INTERVAL = 100
+let COMPUTE_MS_INTERVAL = 100
+
+function setupSliders() {
+	const computeIntervalSlider = document.getElementById(
+		"compute-interval-slider",
+	) as HTMLInputElement
+	const computeIntervalValue = document.getElementById(
+		"compute-interval-value",
+	) as HTMLElement
+
+	computeIntervalSlider.addEventListener("input", () => {
+		COMPUTE_MS_INTERVAL = parseInt(computeIntervalSlider.value)
+		computeIntervalValue.textContent = computeIntervalSlider.value
+	})
+}
 
 async function getCanvas(): Promise<HTMLCanvasElement> {
 	const canvas = document.querySelector<HTMLCanvasElement>("#canvas")
@@ -280,6 +294,8 @@ class Renderer {
 }
 
 async function init() {
+	setupSliders()
+
 	const device = await getDevice(await getAdapter())
 	const context = configureContext(await getCanvas(), device)
 	const canvasFormat = navigator.gpu.getPreferredCanvasFormat()
