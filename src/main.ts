@@ -1,6 +1,6 @@
 import "./style.css"
 
-const GRID_SIZE = 64
+let GRID_SIZE = 64
 let COMPUTE_MS_INTERVAL = 100
 
 class UIController {
@@ -19,6 +19,21 @@ class UIController {
 		slider.addEventListener("input", () => {
 			COMPUTE_MS_INTERVAL = parseInt(slider.value)
 			valueLabel.textContent = slider.value
+		})
+	}
+
+	static onGridSizeChange(callback: (size: number) => void) {
+		const slider = document.getElementById(
+			"grid-size-slider",
+		) as HTMLInputElement
+		const valueLabel = document.getElementById("grid-size-value") as HTMLElement
+
+		let timeout: ReturnType<typeof setTimeout>
+		slider.addEventListener("input", () => {
+			clearTimeout(timeout)
+			const size = parseInt(slider.value)
+			valueLabel.textContent = slider.value
+			timeout = setTimeout(() => callback(size), 150)
 		})
 	}
 }
@@ -287,19 +302,45 @@ class Renderer {
 }
 
 class Engine {
+	private simulation!: Simulation
+	private renderer!: Renderer
+	private animationFrameId: number | null = null
+
 	async start() {
 		UIController.setup()
-
 		const device = await getDevice()
 		const canvas = await getCanvas()
 		const context = canvas.getContext("webgpu")!
 		const format = navigator.gpu.getPreferredCanvasFormat()
 		context.configure({ device, format })
 
-		const grid = new Grid(GRID_SIZE, device)
+		this.init(device, context, format, GRID_SIZE)
+
+		UIController.onReset(() => this.simulation.reset(GRID_SIZE))
+		UIController.onGridSizeChange((newSize) => {
+			this.stopRendering()
+			GRID_SIZE = newSize
+			this.init(device, context, format, newSize)
+		})
+	}
+
+	private stopRendering() {
+		if (this.animationFrameId !== null) {
+			cancelAnimationFrame(this.animationFrameId)
+			this.animationFrameId = null
+		}
+	}
+
+	private async init(
+		device: GPUDevice,
+		context: GPUCanvasContext,
+		format: GPUTextureFormat,
+		gridSize: number,
+	) {
+		const grid = new Grid(gridSize, device)
 		const timeBuffer = Buffers.createTimeBuffer(device)
 		const [vertexBuffer, vertices] = Buffers.createVertexBuffer(device)
-		const stateBuffers = Buffers.createStateBuffers(device, GRID_SIZE)
+		const stateBuffers = Buffers.createStateBuffers(device, gridSize)
 		const layout = PipelineFactory.createBindGroupLayout(device)
 		const pipelineLayout = PipelineFactory.createPipelineLayout(device, layout)
 
@@ -308,27 +349,27 @@ class Engine {
 			PipelineFactory.createCompute(device, pipelineLayout),
 		])
 
-		const simulation = new Simulation(
+		this.simulation = new Simulation(
 			device,
 			grid,
 			timeBuffer,
 			stateBuffers,
 			layout,
 		)
-		const renderer = new Renderer(
+		this.renderer = new Renderer(
 			device,
 			context,
 			renderPipeline,
 			computePipeline,
 			vertexBuffer,
 			vertices,
-			simulation,
+			this.simulation,
 			timeBuffer,
 		)
 
-		UIController.onReset(() => simulation.reset(GRID_SIZE))
-
-		requestAnimationFrame(renderer.render.bind(renderer))
+		this.animationFrameId = requestAnimationFrame(
+			this.renderer.render.bind(this.renderer),
+		)
 	}
 }
 
